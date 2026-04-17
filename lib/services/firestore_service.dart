@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import '../models/issue_model.dart';
 
 class FirestoreService {
@@ -13,12 +14,44 @@ class FirestoreService {
   // Upload image to Cloudinary and return download URL
   Future<String> uploadImage(File imageFile, String issueId) async {
     final uri = Uri.parse(
-        'https://api.cloudinary.com/v1_1/$_cloudName/image/upload');
+      'https://api.cloudinary.com/v1_1/$_cloudName/image/upload',
+    );
 
     final request = http.MultipartRequest('POST', uri)
       ..fields['upload_preset'] = _uploadPreset
       ..fields['public_id'] = 'issues/$issueId'
       ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
+
+    final response = await request.send();
+    final responseData = await response.stream.toBytes();
+    final jsonData = json.decode(String.fromCharCodes(responseData));
+
+    if (response.statusCode == 200) {
+      return jsonData['secure_url'] as String;
+    } else {
+      throw Exception('Image upload failed: ${jsonData['error']['message']}');
+    }
+  }
+
+  // Upload image from bytes (for web) to Cloudinary and return download URL
+  Future<String> uploadImageFromBytes(
+    Uint8List imageBytes,
+    String issueId,
+  ) async {
+    final uri = Uri.parse(
+      'https://api.cloudinary.com/v1_1/$_cloudName/image/upload',
+    );
+
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = _uploadPreset
+      ..fields['public_id'] = 'issues/$issueId'
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          imageBytes,
+          filename: 'issue_$issueId.jpg',
+        ),
+      );
 
     final response = await request.send();
     final responseData = await response.stream.toBytes();
@@ -42,9 +75,11 @@ class FirestoreService {
         .collection('issues')
         .orderBy('created_at', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => IssueModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => IssueModel.fromMap(doc.data(), doc.id))
+              .toList(),
+        );
   }
 
   // Get issues by current user

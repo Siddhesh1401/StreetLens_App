@@ -20,30 +20,28 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAW2m7x8iVTnDKr-7z791ZTs9emQ9tOX00',
-    appId: '1:238699114278:android:7a7fafb61d3153cbd9dbe7',
-    messagingSenderId: '238699114278',
-    projectId: 'streetlens-8a15c',
-    storageBucket: 'streetlens-8a15c.firebasestorage.app',
+    apiKey: 'AIzaSyD3WzX-eysgGXOWQZjKOg1pbmsjtb7552o',
+    appId: '1:1033958829518:android:9f4c6e2a8b1d5f7e3a9c',
+    messagingSenderId: '1033958829518',
+    projectId: 'streetlens-555',
+    storageBucket: 'streetlens-555.firebasestorage.app',
   );
 
-  // TODO: Fill in iOS values if you add iOS app in Firebase console
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAW2m7x8iVTnDKr-7z791ZTs9emQ9tOX00',
-    appId: '1:238699114278:ios:placeholder',
-    messagingSenderId: '238699114278',
-    projectId: 'streetlens-8a15c',
-    storageBucket: 'streetlens-8a15c.firebasestorage.app',
+    apiKey: 'AIzaSyD3WzX-eysgGXOWQZjKOg1pbmsjtb7552o',
+    appId: '1:1033958829518:ios:1666576165f442b1c40f9f',
+    messagingSenderId: '1033958829518',
+    projectId: 'streetlens-555',
+    storageBucket: 'streetlens-555.firebasestorage.app',
     iosBundleId: 'com.streetlens.streetlensApp',
   );
 
-  // TODO: Fill in web values from Firebase console (Step 6 config you copied)
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAW2m7x8iVTnDKr-7z791ZTs9emQ9tOX00',
-    appId: '1:238699114278:web:placeholder',
-    messagingSenderId: '238699114278',
-    projectId: 'streetlens-8a15c',
-    storageBucket: 'streetlens-8a15c.firebasestorage.app',
-    authDomain: 'streetlens-8a15c.firebaseapp.com',
+    apiKey: 'AIzaSyD3WzX-eysgGXOWQZjKOg1pbmsjtb7552o',
+    appId: '1:1033958829518:web:1666576165f442b1c40f9f',
+    messagingSenderId: '1033958829518',
+    projectId: 'streetlens-555',
+    storageBucket: 'streetlens-555.firebasestorage.app',
+    authDomain: 'streetlens-555.firebaseapp.com',
   );
 }

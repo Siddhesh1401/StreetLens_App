@@ -1,26 +1,36 @@
 {
   "project_info": {
-    "project_number": "238699114278",
-    "project_id": "streetlens-8a15c",
-    "storage_bucket": "streetlens-8a15c.firebasestorage.app"
+    "project_number": "1033958829518",
+    "project_id": "streetlens-555",
+    "storage_bucket": "streetlens-555.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:238699114278:android:7a7fafb61d3153cbd9dbe7",
+        "mobilesdk_app_id": "1:1033958829518:android:fe5dc52b420cf62cc40f9f",
         "android_client_info": {
           "package_name": "com.streetlens.streetlens_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1033958829518-u1en0gfnvfc41j065orammadevhiaf98.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyAW2m7x8iVTnDKr-7z791ZTs9emQ9tOX00"
+          "current_key": "AIzaSyCCy39_2gOKDZMQ-H8Fxo9mDTjHun95PmE"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1033958829518-u1en0gfnvfc41j065orammadevhiaf98.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

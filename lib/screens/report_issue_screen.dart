@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
+import 'dart:typed_data';
 import '../services/firestore_service.dart';
 import '../services/location_service.dart';
 import '../models/issue_model.dart';
@@ -21,6 +23,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   final _locationService = LocationService();
 
   File? _selectedImage;
+  Uint8List? _imageBytes;
   String? _selectedCategory;
   double? _latitude;
   double? _longitude;
@@ -28,10 +31,22 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   bool _isSubmitting = false;
 
   final List<Map<String, dynamic>> _categories = [
-    {'label': 'Pothole', 'icon': Icons.warning_amber_rounded, 'color': Colors.orange},
+    {
+      'label': 'Pothole',
+      'icon': Icons.warning_amber_rounded,
+      'color': Colors.orange,
+    },
     {'label': 'Garbage', 'icon': Icons.delete_outline, 'color': Colors.green},
-    {'label': 'Water Leak', 'icon': Icons.water_drop_outlined, 'color': Colors.blue},
-    {'label': 'Streetlight', 'icon': Icons.lightbulb_outline, 'color': Colors.yellow.shade700},
+    {
+      'label': 'Water Leak',
+      'icon': Icons.water_drop_outlined,
+      'color': Colors.blue,
+    },
+    {
+      'label': 'Streetlight',
+      'icon': Icons.lightbulb_outline,
+      'color': Colors.yellow.shade700,
+    },
     {'label': 'Road Damage', 'icon': Icons.construction, 'color': Colors.red},
     {'label': 'Other', 'icon': Icons.more_horiz, 'color': Colors.grey},
   ];
@@ -46,7 +61,12 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source, imageQuality: 70);
     if (picked != null) {
-      setState(() => _selectedImage = File(picked.path));
+      if (kIsWeb) {
+        final bytes = await picked.readAsBytes();
+        setState(() => _imageBytes = bytes);
+      } else {
+        setState(() => _selectedImage = File(picked.path));
+      }
     }
   }
 
@@ -61,7 +81,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not get location. Check permissions.')),
+          const SnackBar(
+            content: Text('Could not get location. Check permissions.'),
+          ),
         );
       }
     }
@@ -70,21 +92,30 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
   Future<void> _submitIssue() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedImage == null) {
+    if (_selectedImage == null && _imageBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an image'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please select an image'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a category'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please select a category'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (_latitude == null || _longitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please detect your location'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please detect your location'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -94,7 +125,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser!;
       final issueId = const Uuid().v4();
-      final imageUrl = await _firestoreService.uploadImage(_selectedImage!, issueId);
+      final imageUrl = kIsWeb
+          ? await _firestoreService.uploadImageFromBytes(_imageBytes!, issueId)
+          : await _firestoreService.uploadImage(_selectedImage!, issueId);
 
       final issue = IssueModel(
         issueId: issueId,
@@ -138,8 +171,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
       appBar: AppBar(
-        title: const Text('Report an Issue',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Report an Issue',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -162,19 +197,26 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.grey.shade200),
                   ),
-                  child: _selectedImage != null
+                  child: (_selectedImage != null || _imageBytes != null)
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                          child: kIsWeb
+                              ? Image.memory(_imageBytes!, fit: BoxFit.cover)
+                              : Image.file(_selectedImage!, fit: BoxFit.cover),
                         )
                       : const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_a_photo_outlined,
-                                size: 48, color: Color(0xFF1565C0)),
+                            Icon(
+                              Icons.add_a_photo_outlined,
+                              size: 48,
+                              color: Color(0xFF1565C0),
+                            ),
                             SizedBox(height: 8),
-                            Text('Tap to add photo',
-                                style: TextStyle(color: Colors.grey)),
+                            Text(
+                              'Tap to add photo',
+                              style: TextStyle(color: Colors.grey),
+                            ),
                           ],
                         ),
                 ),
@@ -182,8 +224,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               const SizedBox(height: 20),
 
               // Category
-              const Text('Category',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                'Category',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 10,
@@ -195,7 +239,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                         setState(() => _selectedCategory = cat['label']),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? (cat['color'] as Color).withOpacity(0.15)
@@ -211,18 +257,23 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(cat['icon'] as IconData,
-                              size: 18, color: cat['color'] as Color),
+                          Icon(
+                            cat['icon'] as IconData,
+                            size: 18,
+                            color: cat['color'] as Color,
+                          ),
                           const SizedBox(width: 6),
-                          Text(cat['label'] as String,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? (cat['color'] as Color)
-                                    : Colors.black87,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              )),
+                          Text(
+                            cat['label'] as String,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? (cat['color'] as Color)
+                                  : Colors.black87,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -232,8 +283,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               const SizedBox(height: 20),
 
               // Description
-              const Text('Description',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                'Description',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 10),
               TextFormField(
                 controller: _descController,
@@ -255,13 +308,16 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                     borderSide: const BorderSide(color: Color(0xFF1565C0)),
                   ),
                 ),
-                validator: (v) => v!.isEmpty ? 'Please add a description' : null,
+                validator: (v) =>
+                    v!.isEmpty ? 'Please add a description' : null,
               ),
               const SizedBox(height: 20),
 
               // Location
-              const Text('Location',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                'Location',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -273,7 +329,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      _latitude != null ? Icons.location_on : Icons.location_off,
+                      _latitude != null
+                          ? Icons.location_on
+                          : Icons.location_off,
                       color: _latitude != null ? Colors.green : Colors.grey,
                     ),
                     const SizedBox(width: 10),
@@ -283,7 +341,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                             ? 'Lat: ${_latitude!.toStringAsFixed(5)}, Lng: ${_longitude!.toStringAsFixed(5)}'
                             : 'Location not detected',
                         style: TextStyle(
-                          color: _latitude != null ? Colors.black87 : Colors.grey,
+                          color: _latitude != null
+                              ? Colors.black87
+                              : Colors.grey,
                         ),
                       ),
                     ),
@@ -295,8 +355,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Detect',
-                              style: TextStyle(color: Color(0xFF1565C0))),
+                          : const Text(
+                              'Detect',
+                              style: TextStyle(color: Color(0xFF1565C0)),
+                            ),
                     ),
                   ],
                 ),
@@ -312,16 +374,18 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1565C0),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   child: _isSubmitting
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
                           'Submit Issue',
                           style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                 ),
               ),
@@ -353,7 +417,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Color(0xFF1565C0)),
+              leading: const Icon(
+                Icons.photo_library,
+                color: Color(0xFF1565C0),
+              ),
               title: const Text('Choose from Gallery'),
               onTap: () {
                 Navigator.pop(context);
