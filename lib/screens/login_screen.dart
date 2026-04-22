@@ -52,6 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('LoginScreen: Rendering build method');
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
       body: SafeArea(
@@ -124,7 +125,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(14)),
                     ),
                     child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
                         : const Text('Login',
                             style: TextStyle(
                                 fontSize: 16,

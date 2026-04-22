@@ -30,15 +30,30 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateAfterDelay() async {
+    debugPrint('Splash: Waiting for 3 seconds...');
     await Future.delayed(const Duration(seconds: 3));
+    
     if (!mounted) return;
-    final user = FirebaseAuth.instance.currentUser;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => user != null ? const HomeScreen() : const LoginScreen(),
-      ),
-    );
+
+    try {
+      debugPrint('Splash: Checking auth status...');
+      final user = FirebaseAuth.instance.currentUser;
+      debugPrint('Splash: User is ${user != null ? 'logged in' : 'not logged in'}');
+      
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => user != null ? const HomeScreen() : const LoginScreen(),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Splash: Error during navigation: $e');
+      // Navigate to login screen even if auth check fails
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
   }
 
   @override
@@ -63,11 +78,11 @@ class _SplashScreenState extends State<SplashScreen>
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
+                  boxShadow: const [
                     BoxShadow(
                       color: Colors.black26,
                       blurRadius: 20,
-                      offset: const Offset(0, 8),
+                      offset: Offset(0, 8),
                     ),
                   ],
                 ),

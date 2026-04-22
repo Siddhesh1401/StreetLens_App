@@ -5,9 +5,19 @@ import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  
+  try {
+    // Attempt to initialize Firebase only if no apps are already initialized
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } catch (e) {
+    // If it's already initialized, we can safely ignore the error
+    debugPrint('Firebase already initialized or error: $e');
+  }
+  
   runApp(const StreetLensApp());
 }
 
