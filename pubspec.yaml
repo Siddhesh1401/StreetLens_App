@@ -38,6 +38,7 @@ dependencies:
   firebase_auth: ^5.0.0
   cloud_firestore: ^5.0.0
   firebase_messaging: ^15.0.0
+  google_sign_in: ^6.3.0
 
   # Maps & Location (OpenStreetMap - completely free, no API key needed)
   flutter_map: ^7.0.2

@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 
 class AuthService {
@@ -57,6 +59,58 @@ class AuthService {
         password: password,
       );
       return credential.user;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<User?> signInWithGoogle() async {
+    try {
+      late final UserCredential credential;
+
+      if (kIsWeb) {
+        credential = await _auth.signInWithPopup(GoogleAuthProvider());
+      } else {
+        final googleUser = await GoogleSignIn(scopes: const ['email']).signIn();
+        if (googleUser == null) return null;
+
+        final googleAuth = await googleUser.authentication;
+        final authCredential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        credential = await _auth.signInWithCredential(authCredential);
+      }
+
+      final firebaseUser = credential.user;
+      if (firebaseUser == null) return null;
+
+      final docRef = _firestore.collection('users').doc(firebaseUser.uid);
+      final doc = await docRef.get();
+      final existingData = doc.data();
+
+      final displayName = (firebaseUser.displayName ?? '').trim().isNotEmpty
+          ? firebaseUser.displayName!.trim()
+          : (firebaseUser.email?.split('@').first ?? 'Google User');
+
+      final user = UserModel(
+        userId: firebaseUser.uid,
+        name: displayName,
+        email: firebaseUser.email ?? '',
+        phone: (existingData?['phone'] as String?) ?? '',
+        role: (existingData?['role'] as String?) ?? 'citizen',
+        createdAt: (existingData?['created_at'] as dynamic)?.toDate() ??
+            DateTime.now(),
+      );
+
+      await docRef.set(user.toMap(), SetOptions(merge: true));
+
+      if ((firebaseUser.displayName ?? '').trim().isEmpty) {
+        await firebaseUser.updateDisplayName(displayName);
+      }
+
+      return firebaseUser;
     } catch (e) {
       rethrow;
     }
