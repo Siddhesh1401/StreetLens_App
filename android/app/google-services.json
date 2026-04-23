@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1033958829518-jacoc6ea3atd6a1p3rs4j4h8aub508e2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.streetlens.streetlens_app",
+            "certificate_hash": "c94fe6759ea6a32fb02944dd1bb4db12b046ffc1"
+          }
+        },
+        {
           "client_id": "1033958829518-u1en0gfnvfc41j065orammadevhiaf98.apps.googleusercontent.com",
           "client_type": 3
         }
