@@ -2,22 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
+import 'services/push_notification_service.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<ScaffoldMessengerState> messengerKey =
+  GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  try {
-    // Attempt to initialize Firebase only if no apps are already initialized
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    }
-  } catch (e) {
-    // If it's already initialized, we can safely ignore the error
-    debugPrint('Firebase already initialized or error: $e');
-  }
-  
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await PushNotificationService.instance.initialize(
+    navigatorKey: navigatorKey,
+    messengerKey: messengerKey,
+  );
   runApp(const StreetLensApp());
 }
 
@@ -27,6 +26,8 @@ class StreetLensApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: messengerKey,
       title: 'StreetLens',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

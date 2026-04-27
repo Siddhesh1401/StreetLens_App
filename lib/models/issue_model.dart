@@ -6,6 +6,7 @@ class IssueModel {
   final String description;
   final double latitude;
   final double longitude;
+  final String priority; // 'Low', 'Normal', 'High', 'Urgent'
   final String status; // 'Pending', 'In Progress', 'Resolved'
   final int upvotes;
   final String assignedWorker;
@@ -21,6 +22,7 @@ class IssueModel {
     required this.description,
     required this.latitude,
     required this.longitude,
+    required this.priority,
     required this.status,
     required this.upvotes,
     required this.assignedWorker,
@@ -38,6 +40,7 @@ class IssueModel {
       description: map['description'] ?? '',
       latitude: (map['latitude'] ?? 0.0).toDouble(),
       longitude: (map['longitude'] ?? 0.0).toDouble(),
+      priority: map['priority'] ?? 'Normal',
       status: map['status'] ?? 'Pending',
       upvotes: map['upvotes'] ?? 0,
       assignedWorker: map['assigned_worker'] ?? '',
@@ -55,6 +58,7 @@ class IssueModel {
       'description': description,
       'latitude': latitude,
       'longitude': longitude,
+      'priority': priority,
       'status': status,
       'upvotes': upvotes,
       'assigned_worker': assignedWorker,

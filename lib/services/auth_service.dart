@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
+import 'push_notification_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -42,6 +43,7 @@ class AuthService {
           .set(user.toMap());
 
       await credential.user!.updateDisplayName(name);
+      await PushNotificationService.instance.syncCurrentUserToken();
       return user;
     } catch (e) {
       rethrow;
@@ -58,6 +60,7 @@ class AuthService {
         email: email,
         password: password,
       );
+      await PushNotificationService.instance.syncCurrentUserToken();
       return credential.user;
     } catch (e) {
       rethrow;
@@ -109,6 +112,8 @@ class AuthService {
       if ((firebaseUser.displayName ?? '').trim().isEmpty) {
         await firebaseUser.updateDisplayName(displayName);
       }
+
+      await PushNotificationService.instance.syncCurrentUserToken();
 
       return firebaseUser;
     } catch (e) {

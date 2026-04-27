@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import '../models/issue_model.dart';
+import '../models/notification_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -82,6 +83,17 @@ class FirestoreService {
         );
   }
 
+  Future<List<IssueModel>> getAllIssuesOnce() async {
+    final snapshot = await _firestore
+        .collection('issues')
+        .orderBy('created_at', descending: true)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => IssueModel.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
   // Get issues by current user
   Stream<List<IssueModel>> getUserIssues(String userId) {
     return _firestore
@@ -116,9 +128,72 @@ class FirestoreService {
 
   // Update issue status (admin)
   Future<void> updateIssueStatus(String issueId, String status) async {
-    await _firestore.collection('issues').doc(issueId).update({
+    final issueRef = _firestore.collection('issues').doc(issueId);
+    final issueSnap = await issueRef.get();
+    if (!issueSnap.exists) {
+      throw Exception('Issue not found');
+    }
+
+    final issueData = issueSnap.data() ?? {};
+    final previousStatus = issueData['status'] as String? ?? 'Pending';
+    final userId = issueData['user_id'] as String? ?? '';
+    final userName = issueData['user_name'] as String? ?? 'Citizen';
+    final category = issueData['category'] as String? ?? 'issue';
+
+    await issueRef.update({
       'status': status,
       'updated_at': DateTime.now(),
+    });
+
+    if (userId.isNotEmpty && previousStatus != status) {
+      final notification = NotificationModel(
+        notificationId: '',
+        userId: userId,
+        issueId: issueId,
+        title: 'Your $category has been updated',
+        body: '$userName\'s complaint is now marked as $status.',
+        type: 'status_update',
+        isRead: false,
+        createdAt: DateTime.now(),
+      );
+
+      await _firestore.collection('notifications').add(notification.toMap());
+    }
+  }
+
+  Stream<List<NotificationModel>> getUserNotifications(String userId) {
+    if (userId.isEmpty) {
+      return Stream.value([]);
+    }
+
+    return _firestore
+        .collection('notifications')
+        .where('user_id', isEqualTo: userId)
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => NotificationModel.fromMap(doc.data(), doc.id))
+              .toList(),
+        );
+  }
+
+  Stream<int> getUnreadNotificationCount(String userId) {
+    if (userId.isEmpty) {
+      return Stream.value(0);
+    }
+
+    return _firestore
+        .collection('notifications')
+        .where('user_id', isEqualTo: userId)
+        .where('is_read', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    await _firestore.collection('notifications').doc(notificationId).update({
+      'is_read': true,
     });
   }
 }

@@ -6,14 +6,20 @@ class StatusBadge extends StatelessWidget {
 
   Color get _color {
     switch (status) {
+      case 'Pending':
+      case 'Submitted':
+        return Colors.blue;
       case 'Resolved': return Colors.green;
       case 'In Progress': return Colors.orange;
-      default: return Colors.red;
+      default: return Colors.grey;
     }
   }
 
   IconData get _icon {
     switch (status) {
+      case 'Pending':
+      case 'Submitted':
+        return Icons.schedule;
       case 'Resolved': return Icons.check_circle;
       case 'In Progress': return Icons.autorenew;
       default: return Icons.schedule;
@@ -25,9 +31,9 @@ class StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: _color.withOpacity(0.12),
+        color: _color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _color.withOpacity(0.3)),
+        border: Border.all(color: _color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

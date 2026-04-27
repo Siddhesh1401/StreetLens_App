@@ -3,10 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 import '../services/firestore_service.dart';
+import '../services/draft_service.dart';
 import '../services/location_service.dart';
 import '../models/issue_model.dart';
+import '../models/issue_draft_model.dart';
 import 'package:uuid/uuid.dart';
 
 class ReportIssueScreen extends StatefulWidget {
@@ -20,15 +23,19 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descController = TextEditingController();
   final _firestoreService = FirestoreService();
+  final _draftService = DraftService();
   final _locationService = LocationService();
 
   File? _selectedImage;
   Uint8List? _imageBytes;
   String? _selectedCategory;
+  String _selectedPriority = 'Normal';
+  bool _isAnonymous = false;
   double? _latitude;
   double? _longitude;
   bool _isLoadingLocation = false;
   bool _isSubmitting = false;
+  bool _isRestoringDraft = true;
 
   final List<Map<String, dynamic>> _categories = [
     {
@@ -57,6 +64,15 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _descController.addListener(_saveDraft);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _restoreDraft();
+    });
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source, imageQuality: 70);
@@ -67,8 +83,130 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       } else {
         setState(() => _selectedImage = File(picked.path));
       }
+      await _saveDraft();
     }
   }
+
+  Future<void> _restoreDraft() async {
+    final draft = await _draftService.loadDraft();
+    if (!mounted) return;
+
+    if (draft == null) {
+      setState(() => _isRestoringDraft = false);
+      return;
+    }
+
+    setState(() {
+      _descController.text = draft.description;
+      _selectedCategory = draft.category;
+      _selectedPriority = draft.priority;
+      _isAnonymous = draft.isAnonymous;
+      _latitude = draft.latitude;
+      _longitude = draft.longitude;
+      if (kIsWeb && draft.imageBase64 != null) {
+        _imageBytes = base64Decode(draft.imageBase64!);
+      } else if (!kIsWeb && draft.imagePath != null) {
+        _selectedImage = File(draft.imagePath!);
+      }
+      _isRestoringDraft = false;
+    });
+  }
+
+  Future<void> _saveDraft() async {
+    if (_isRestoringDraft) return;
+
+    final draft = IssueDraftModel(
+      description: _descController.text.trim(),
+      category: _selectedCategory,
+      latitude: _latitude,
+      longitude: _longitude,
+      priority: _selectedPriority,
+      isAnonymous: _isAnonymous,
+      imagePath: kIsWeb ? null : _selectedImage?.path,
+      imageBase64: kIsWeb && _imageBytes != null ? base64Encode(_imageBytes!) : null,
+    );
+
+    await _draftService.saveDraft(draft);
+  }
+
+  Future<bool> _checkForDuplicateIssue() async {
+    if (_selectedCategory == null || _latitude == null || _longitude == null) {
+      return false;
+    }
+
+    final issues = await _firestoreService.getAllIssuesOnce();
+    final duplicates = issues.where((issue) {
+      if (issue.category != _selectedCategory) return false;
+      final distance = _distanceMeters(
+        _latitude!,
+        _longitude!,
+        issue.latitude,
+        issue.longitude,
+      );
+      return distance <= 120;
+    }).toList();
+
+    if (duplicates.isEmpty) return false;
+
+    if (!mounted) return true;
+
+    final shouldContinue = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Possible duplicate complaint'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'We found a similar complaint nearby. Review the latest ones before submitting.',
+              ),
+              const SizedBox(height: 12),
+              ...duplicates.take(3).map(
+                    (issue) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '• ${issue.category} - ${issue.description}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Review'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Submit anyway'),
+          ),
+        ],
+      ),
+    );
+
+    return shouldContinue ?? false;
+  }
+
+  double _distanceMeters(double lat1, double lon1, double lat2, double lon2) {
+    const earthRadius = 6371000.0;
+    final dLat = _degToRad(lat2 - lat1);
+    final dLon = _degToRad(lon2 - lon1);
+    final a =
+        (sin(dLat / 2) * sin(dLat / 2)) +
+            cos(_degToRad(lat1)) *
+                cos(_degToRad(lat2)) *
+                (sin(dLon / 2) * sin(dLon / 2));
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _degToRad(double deg) => deg * (3.1415926535897932 / 180.0);
 
   Future<void> _detectLocation() async {
     setState(() => _isLoadingLocation = true);
@@ -78,6 +216,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         _latitude = position.latitude;
         _longitude = position.longitude;
       });
+      await _saveDraft();
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
