@@ -46,7 +46,7 @@ class IssueCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 2)),
           ],
@@ -65,7 +65,8 @@ class IssueCard extends StatelessWidget {
                       width: 90,
                       height: 90,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _PlaceholderImage(
+                      errorBuilder: (context, error, stackTrace) =>
+                        _PlaceholderImage(
                           color: _getCategoryColor(issue.category)),
                     )
                   : _PlaceholderImage(color: _getCategoryColor(issue.category)),
@@ -90,6 +91,8 @@ class IssueCard extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                               fontSize: 13),
                         ),
+                        const SizedBox(width: 8),
+                        _PriorityBadge(priority: issue.priority),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -140,8 +143,45 @@ class _PlaceholderImage extends StatelessWidget {
     return Container(
       width: 90,
       height: 90,
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       child: Icon(Icons.image_outlined, color: color, size: 32),
+    );
+  }
+}
+
+class _PriorityBadge extends StatelessWidget {
+  final String priority;
+  const _PriorityBadge({required this.priority});
+
+  Color get _color {
+    switch (priority) {
+      case 'Low':
+        return Colors.green;
+      case 'High':
+        return Colors.orange;
+      case 'Urgent':
+        return Colors.red;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        priority,
+        style: TextStyle(
+          color: _color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }

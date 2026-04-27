@@ -137,6 +137,11 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                             .format(widget.issue.createdAt),
                       ),
                       _InfoRow(
+                        icon: Icons.flag_outlined,
+                        label: 'Priority',
+                        value: widget.issue.priority,
+                      ),
+                      _InfoRow(
                         icon: Icons.update_outlined,
                         label: 'Last updated',
                         value: DateFormat('dd MMM yyyy, hh:mm a')

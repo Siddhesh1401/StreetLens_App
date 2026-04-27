@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import '../services/firestore_service.dart';
 import '../services/draft_service.dart';
@@ -198,11 +199,11 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     final dLat = _degToRad(lat2 - lat1);
     final dLon = _degToRad(lon2 - lon1);
     final a =
-        (sin(dLat / 2) * sin(dLat / 2)) +
-            cos(_degToRad(lat1)) *
-                cos(_degToRad(lat2)) *
-                (sin(dLon / 2) * sin(dLon / 2));
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+        (math.sin(dLat / 2) * math.sin(dLat / 2)) +
+            math.cos(_degToRad(lat1)) *
+                math.cos(_degToRad(lat2)) *
+                (math.sin(dLon / 2) * math.sin(dLon / 2));
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadius * c;
   }
 
@@ -259,10 +260,16 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       return;
     }
 
+    final canContinue = await _checkForDuplicateIssue();
+    if (!canContinue) {
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser!;
+      final displayName = _isAnonymous ? 'Anonymous' : (user.displayName ?? 'Citizen');
       final issueId = const Uuid().v4();
       final imageUrl = kIsWeb
           ? await _firestoreService.uploadImageFromBytes(_imageBytes!, issueId)
@@ -276,15 +283,17 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         description: _descController.text.trim(),
         latitude: _latitude!,
         longitude: _longitude!,
+        priority: _selectedPriority,
         status: 'Pending',
         upvotes: 0,
         assignedWorker: '',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-        userName: user.displayName ?? 'Citizen',
+        userName: displayName,
       );
 
       await _firestoreService.submitIssue(issue);
+      await _draftService.clearDraft();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -296,9 +305,13 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
+      await _saveDraft();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Saved as draft. Error: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -325,6 +338,29 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_isRestoringDraft)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: const Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 10),
+                      Text('Checking for saved draft...'),
+                    ],
+                  ),
+                ),
+
               // Image picker
               GestureDetector(
                 onTap: () => _showImageSourceSheet(),
@@ -362,6 +398,31 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               ),
               const SizedBox(height: 20),
 
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _isAnonymous,
+                  onChanged: (value) {
+                    setState(() => _isAnonymous = value);
+                    _saveDraft();
+                  },
+                  title: const Text(
+                    'Anonymous reporting',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Hide your name from the public issue feed.',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
               // Category
               const Text(
                 'Category',
@@ -374,8 +435,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                 children: _categories.map((cat) {
                   final isSelected = _selectedCategory == cat['label'];
                   return GestureDetector(
-                    onTap: () =>
-                        setState(() => _selectedCategory = cat['label']),
+                    onTap: () {
+                      setState(() => _selectedCategory = cat['label']);
+                      _saveDraft();
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -383,7 +446,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? (cat['color'] as Color).withOpacity(0.15)
+                          ? (cat['color'] as Color).withValues(alpha: 0.15)
                             : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
@@ -414,6 +477,59 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+
+              const Text(
+                'Priority',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: ['Low', 'Normal', 'High', 'Urgent'].map((priority) {
+                  final isSelected = _selectedPriority == priority;
+                  final color = switch (priority) {
+                    'Low' => Colors.green,
+                    'Normal' => Colors.blue,
+                    'High' => Colors.orange,
+                    'Urgent' => Colors.red,
+                    _ => Colors.blue,
+                  };
+
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedPriority = priority);
+                      _saveDraft();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? color.withValues(alpha: 0.15)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? color : Colors.grey.shade200,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Text(
+                        priority,
+                        style: TextStyle(
+                          color: isSelected ? color : Colors.black87,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
                       ),
                     ),
                   );
